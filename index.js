@@ -26,13 +26,13 @@
 /// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 /// THE SOFTWARE.
 
-var fs       = require("fs");
-var path     = require("path");
-var through  = require("through2");
-var crypto   = require("crypto");
-var isUtf8   = require("isutf8");
-var File     = require("vinyl");
-var Concat   = require("concat-with-sourcemaps");
+var fs = require("fs");
+var path = require("path");
+var through = require("through2");
+var crypto = require("crypto");
+var isUtf8 = require("isutf8");
+var File = require("vinyl");
+var Concat = require("concat-with-sourcemaps");
 var STAT_BUFFER = {};
 var DATA_BUFFER = {};
 var TIME_BUFFER = {};
@@ -41,16 +41,16 @@ var TIME_DEPENC = {};
 var LINE_APPDIX = "\n";
 
 
-function transform( file, encoding, callback ) {
-    if ( file.isNull() ) {
+function transform(file, encoding, callback) {
+    if (file.isNull()) {
         return callback(null, file);
     }
 
-    if ( file.isStream() ) {
+    if (file.isStream()) {
         return callback(new Error("gulp-reference: streaming not supported"));
     }
 
-    if ( file.isBuffer ) {
+    if (file.isBuffer) {
         STAT_BUFFER = {};
         file = traversal(file);
     }
@@ -59,22 +59,22 @@ function transform( file, encoding, callback ) {
 }
 
 
-function traversal( root ) {
+function traversal(root) {
     var flags = {};
     var visit = {};
     var store = [];
     var stack = [root];
-    var file  = null;
-    var name  = null;
+    var file = null;
+    var name = null;
 
-    while( (file = stack.pop()) && (name = file.path) ) {
-        if ( flags[name] ) { 
-            flags[name] = false; 
-            store[store.length] = file; 
+    while ((file = stack.pop()) && (name = file.path)) {
+        if (flags[name]) {
+            flags[name] = false;
+            store[store.length] = file;
             continue;
         }
 
-        if ( !visit[name] ) { 
+        if (!visit[name]) {
             visit[name] = true;
             flags[name] = true;
             stack = stack.concat(file, getDependencies(file).reverse());
@@ -85,82 +85,81 @@ function traversal( root ) {
 }
 
 
-function merge( root, fileList ) {
+function merge(root, fileList) {
     var fileConcat = new Concat(!!root.sourceMap, path.basename(root.path), LINE_APPDIX);
     var fileResult = new File({ path: root.path, base: root.base });
 
-    for ( var i = 0; i < fileList.length; ++i ) {
+    for (var i = 0; i < fileList.length; ++i) {
         fileConcat.add(path.relative(root.base, fileList[i].path), fileList[i].contents, fileList[i].sourceMap);
     }
 
-    if ( !!root.sourceMap ) {
-        fileResult.contents  = fileConcat.content;
+    if (!!root.sourceMap) {
+        fileResult.contents = fileConcat.content;
         fileResult.sourceMap = JSON.parse(fileConcat.sourceMap);
-    }
-
-    else {
-        fileResult.contents  = fileConcat.content;
+    } else {
+        fileResult.contents = fileConcat.content;
     }
 
     return fileResult;
 }
 
 
-function getDependencies( file ) {
+function getDependencies(file) {
     var time = +(fs.statSync(file.path).mtime);
     var list = [];
 
-    if ( DATA_DEPENC[file.path] && time <= TIME_DEPENC[file.path] ) {
+    if (DATA_DEPENC[file.path] && time <= TIME_DEPENC[file.path]) {
         list = DATA_DEPENC[file.path];
-    }
-
-    else {
+    } else {
         var comments = getComments(String(file.contents));
-        var rRegexp  = /<\/?reference((\s+\w+(\s*=\s*(?:".*?"|'.*?'|[^'">\s]+))?)+\s*|\s*)\/?>/g;
-        var pRegexp  = /path\s*=\s*(?:"(.*?)"|'(.*?)')/;
-        var result   = null;
+        var rRegexp = /<\/?reference((\s+\w+(\s*=\s*(?:".*?"|'.*?'|[^'">\s]+))?)+\s*|\s*)\/?>/g;
+        var pRegexp = /path\s*=\s*(?:"(.*?)"|'(.*?)')/;
+        var result = null;
 
-        while( (result = rRegexp.exec(comments)) ) {
+        while ((result = rRegexp.exec(comments))) {
             result = result[1] && pRegexp.exec(result[1]);
             result = result && (result[1] || result[2]);
-            result && list.push(path.join(path.dirname(file.path), result.trim())); 
+            result = result.replace("~", "");
+            result = path.join(path.resolve('./'), result.trim());
+            result && list.push(result);
+            console.log(result);
         }
 
         TIME_DEPENC[file.path] = time;
         DATA_DEPENC[file.path] = list;
     }
 
-    for ( var i = 0, fileList = []; i < list.length; ++i ) {
-        fileList[i] = new File({ path: list[i], base: file.base, contents: getContents(list[i]) });
+    for (var i = 0, fileList = []; i < list.length; ++i) {
+        if (!list[i].indexOf('references.js')) {
+            fileList[i] = new File({ path: list[i], base: file.base, contents: getContents(list[i]) });
+        }
     }
 
     return fileList;
 }
 
 
-function getContents( path ) {
-    if ( STAT_BUFFER[path] ) {
-        return DATA_BUFFER[path]; 
+function getContents(path) {
+    if (STAT_BUFFER[path]) {
+        return DATA_BUFFER[path];
     }
 
     var time = +(fs.statSync(path).mtime);
 
-    if ( DATA_BUFFER[path] && time <= TIME_BUFFER[path] ) {
+    if (DATA_BUFFER[path] && time <= TIME_BUFFER[path]) {
         STAT_BUFFER[path] = true;
         return DATA_BUFFER[path];
     }
 
     var data = fs.readFileSync(path);
 
-    if ( isUtf8(data) 
-        && (data[0] === 0xEF && data[1] === 0xBB && data[2] === 0xBF) ) { // utf-8 bom
+    if (isUtf8(data) &&
+        (data[0] === 0xEF && data[1] === 0xBB && data[2] === 0xBF)) { // utf-8 bom
 
         STAT_BUFFER[path] = true;
         TIME_BUFFER[path] = time;
         DATA_BUFFER[path] = data.slice(3);
-    }
-
-    else {
+    } else {
         STAT_BUFFER[path] = true;
         TIME_BUFFER[path] = time;
         DATA_BUFFER[path] = data;
@@ -170,34 +169,34 @@ function getContents( path ) {
 }
 
 
-function getComments( content ) {
+function getComments(content) {
     var start = content.charCodeAt(0) == 0xFEFF ? 1 : 0; // utf-8 bom
-    
-    for ( var i = start, k = 0, b = 0; i < content.length; ++i ) {
+
+    for (var i = start, k = 0, b = 0; i < content.length; ++i) {
         k = content.charCodeAt(i);
 
-        if ( k == 47 ) { // '/'
-            if ( b == 0 ) { b = 1; continue; }
-            if ( b == 1 ) { b = 2; continue; }
-            if ( b == 4 ) { b = 0; continue; }
+        if (k == 47) { // '/'
+            if (b == 0) { b = 1; continue; }
+            if (b == 1) { b = 2; continue; }
+            if (b == 4) { b = 0; continue; }
         }
 
-        if ( k == 42 ) { // '*'
-            if ( b == 1 ) { b = 3; continue; }
-            if ( b == 3 || b == 4 ) { b = 4; continue; }
+        if (k == 42) { // '*'
+            if (b == 1) { b = 3; continue; }
+            if (b == 3 || b == 4) { b = 4; continue; }
         }
 
-        if ( b == 2 ) {
-            if ( k == 10 ) { b = 0; }
+        if (b == 2) {
+            if (k == 10) { b = 0; }
             continue;
         }
 
-        if ( b == 3 || b == 4 ) {
+        if (b == 3 || b == 4) {
             b = 3;
             continue;
         }
 
-        if ( k == 32 || k == 9 || k == 10 || k == 11 || k == 12 || k == 13 ) { // '\x20\t\n\v\f\r'
+        if (k == 32 || k == 9 || k == 10 || k == 11 || k == 12 || k == 13) { // '\x20\t\n\v\f\r'
             continue;
         }
 
