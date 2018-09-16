@@ -116,13 +116,15 @@ function getDependencies(file) {
         var pRegexp = /path\s*=\s*(?:"(.*?)"|'(.*?)')/;
         var result = null;
 
+        console.log(file);
+
         while ((result = rRegexp.exec(comments))) {
             result = result[1] && pRegexp.exec(result[1]);
             result = result && (result[1] || result[2]);
             result = result.replace("~", "");
             result = path.join(path.resolve('./'), result.trim());
             result && list.push(result);
-            console.log(result);
+            console.log("reference:", result);
         }
 
         TIME_DEPENC[file.path] = time;
@@ -131,6 +133,7 @@ function getDependencies(file) {
 
     for (var i = 0, fileList = []; i < list.length; ++i) {
         if (!list[i].indexOf('references.js')) {
+            console.log(getContents(list[i]));
             fileList[i] = new File({ path: list[i], base: file.base, contents: getContents(list[i]) });
         }
     }
@@ -205,6 +208,7 @@ function getComments(content) {
 
     return content.slice(0, i);
 }
+
 
 
 module.exports = function() {
