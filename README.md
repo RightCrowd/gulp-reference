@@ -1,5 +1,5 @@
 # gulp-reference
-Visual Studio 的 <reference>。<br>
+Visual Studio <reference>。<br>
 Concat your Javascript modules together for use with visual studio [`reference`](https://msdn.microsoft.com/en-us/library/bb385682(v=vs.110).aspx) tag.
 
 
